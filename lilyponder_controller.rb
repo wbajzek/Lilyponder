@@ -30,7 +30,8 @@ class LilyponderController
   def open_document(sender)
     dialog = NSOpenPanel.openPanel
     dialog.canChooseFiles = true
-    if dialog.runModalForDirectory(nil, file:nil) == NSOKButton
+    dialog.allowedFileTypes = ["ly"]
+    if dialog.runModal == NSOKButton
       @text_view.setString("")
       # if we had a allowed for the selection of  multiple items
       # we would have want to loop through the selection
@@ -40,7 +41,19 @@ class LilyponderController
       file.close    
     end
   end
-
+  
+  def save_document(sender)
+    dialog = NSSavePanel.new
+    
+    dialog.allowedFileTypes = ["ly"]
+    
+    if dialog.runModal == NSOKButton
+      File.open(dialog.filename, "w") do |file|
+        file << @text_view.string
+      end    
+    end
+  end
+  
   # Called when @text_view loses focus
   def textDidEndEditing(notification)
     regenerate_pdf(notification)
