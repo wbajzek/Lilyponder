@@ -8,6 +8,7 @@ TXT
 class LilyponderController
   attr_accessor :pdf_view, :text_view, :regenerate_button
   attr_accessor :error_label, :progress_bar
+  attr_accessor :destination_path, :regenerate_pdf
   
   LILYPOND_EXECUTABLE = "/Applications/Lilypond.app/Contents/Resources/bin/lilypond"
   SUPPORT_DIR = "~/Application Support/Lilyponder".stringByExpandingTildeInPath
@@ -20,6 +21,24 @@ class LilyponderController
     read_from_ly_file if ly_file_exists?
     reload_pdf        if pdf_file_exists?
     @text_view.setDelegate(self)
+  end
+
+  def new_document(sender)
+    @text_view.setString("")
+  end
+
+  def open_document(sender)
+    dialog = NSOpenPanel.openPanel
+    dialog.canChooseFiles = true
+    if dialog.runModalForDirectory(nil, file:nil) == NSOKButton
+      @text_view.setString("")
+      # if we had a allowed for the selection of  multiple items
+      # we would have want to loop through the selection
+      path = dialog.filenames.first
+      file = File.open(path, "r")
+      @text_view.insertText(file.readlines.join(""))
+      file.close    
+    end
   end
 
   # Called when @text_view loses focus
