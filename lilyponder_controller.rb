@@ -12,19 +12,23 @@ class LilyponderController
   
   LILYPOND_EXECUTABLE = "/Applications/Lilypond.app/Contents/Resources/bin/lilypond"
   SUPPORT_DIR = "~/Application Support/Lilyponder".stringByExpandingTildeInPath
-  GENERIC_FILENAME = "#{SUPPORT_DIR}/file"
+  GENERIC_FILENAME = "#{SUPPORT_DIR}/temp"
   LY_FILENAME = GENERIC_FILENAME + ".ly"
-  PDF_FILENAME = GENERIC_FILENAME + ".pdf"
-
+  PDF_FILENAME = LY_FILENAME + ".pdf"
+  
   def awakeFromNib
+    @currentfile = LY_FILENAME
     set_up_filesystem
-    read_from_ly_file if ly_file_exists?
-    reload_pdf        if pdf_file_exists?
+    clear_text_view!
     @text_view.setDelegate(self)
   end
 
-  def new_document(sender)
+  def clear_text_view!
     @text_view.setString("")
+  end
+  
+  def new_document(sender)
+    clear_text_view!
   end
 
   def open_document(sender)
@@ -32,26 +36,26 @@ class LilyponderController
     dialog.canChooseFiles = true
     dialog.allowedFileTypes = ["ly"]
     if dialog.runModal == NSOKButton
-      @text_view.setString("")
       # if we had a allowed for the selection of  multiple items
       # we would have want to loop through the selection
-      path = dialog.filenames.first
-      file = File.open(path, "r")
-      @text_view.insertText(file.readlines.join(""))
-      file.close    
+      read_from_ly_file(dialog.filenames.first)
     end
   end
   
-  def save_document(sender)
+  def save_document_as(sender)
     dialog = NSSavePanel.new
     
     dialog.allowedFileTypes = ["ly"]
     
     if dialog.runModal == NSOKButton
-      File.open(dialog.filename, "w") do |file|
-        file << @text_view.string
-      end    
+      path = dialog.filename
+      @currentfile = path
+      write_to_ly_file
     end
+  end
+  
+  def save_document(sender)
+    write_to_ly_file
   end
   
   # Called when @text_view loses focus
@@ -68,14 +72,14 @@ class LilyponderController
   end
 
   def reload_pdf
-    data = NSData.dataWithContentsOfFile(PDF_FILENAME)
+    data = NSData.dataWithContentsOfFile(@currentfile + ".pdf")
     document = PDFDocument.new.initWithData(data)
     @pdf_view.setDocument(document)
   end
 
   def run_lilypond_task(sender)
     task = NSTask.launchedTaskWithLaunchPath(LILYPOND_EXECUTABLE,
-      arguments:["-o#{GENERIC_FILENAME}", LY_FILENAME])
+      arguments:["-o#{@currentfile}", @currentfile ])
     set_visibilities_during_lilypond_task(sender)
     task.waitUntilExit
     handle_results(task)
@@ -98,15 +102,18 @@ class LilyponderController
     end
   end
 
-  def read_from_ly_file
-    file = File.open(LY_FILENAME, "r")
+  def read_from_ly_file(path)
+    clear_text_view!
+    file = File.open(path, "r")
     @text_view.insertText(file.readlines.join(""))
     file.close
+    @currentfile = path
+    reload_pdf
   end
 
   def write_to_ly_file
     clean_text_view_string
-    File.open(LY_FILENAME, "w") do |file|
+    File.open(@currentfile, "w") do |file|
       file << @text_view.string
     end
   end
@@ -117,9 +124,7 @@ class LilyponderController
 
   def set_up_filesystem
     FileUtils.mkdir_p(SUPPORT_DIR) unless File.exists?(SUPPORT_DIR)
-    FileUtils.touch(LY_FILENAME)
+    FileUtils.touch(@currentfile)
   end
 
-  def ly_file_exists?;  File.exists?(LY_FILENAME);  end
-  def pdf_file_exists?; File.exists?(PDF_FILENAME); end
 end
